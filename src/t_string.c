@@ -339,7 +339,7 @@ void msetnxCommand(client *c) {
 }
 
 void incrDecrCommand(client *c, long long incr) {
-    long long value, oldvalue;
+    long long value, oldvalue, milliseconds = 0;
     robj *o, *new;
 
     o = lookupKeyWrite(c->db,c->argv[1]);
@@ -368,6 +368,17 @@ void incrDecrCommand(client *c, long long incr) {
             dbAdd(c->db,c->argv[1],new);
         }
     }
+	if(c->argc == 3){
+		robj  *param = c->argv[2];
+		if (getLongLongFromObjectOrReply(c, param, &milliseconds, NULL) != C_OK)
+            return;
+        if (milliseconds <= 0) {
+            addReplyErrorFormat(c,"invalid expire time in %s",c->cmd->name);
+            return;
+        }
+		milliseconds *= 1000;
+		setExpire(c, c->db, c->argv[1], mstime() + milliseconds);	
+	}
     signalModifiedKey(c->db,c->argv[1]);
     notifyKeyspaceEvent(NOTIFY_STRING,"incrby",c->argv[1],c->db->id);
     server.dirty++;
